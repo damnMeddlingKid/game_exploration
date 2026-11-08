@@ -60,10 +60,12 @@ class Game:
         # viewx/f = x/z, # viewy/f = y/z
         # viewx = f*(x/z), viewy = f*(y/z)
         self.focal_z = (HEIGHT/2)/np.tan(fov/2)
-        self.camera_z = 0
+        self.camera_position = np.array([0,0,0], dtype=np.float64)
+        self.camera_dir = np.array([0,0,0], dtype=np.float64)
+        self.move_velocity = 4.0
 
     def world_to_view(self, points):
-        return points + np.array([0,0, -self.camera_z])
+        return points - self.camera_position
 
     def project(self, view_points):
         normalized_points = view_points / view_points[:, [-1]]
@@ -97,9 +99,13 @@ class Game:
         keys = pygame.key.get_pressed()
 
         if keys[pygame.K_UP]:
-            self.camera_z += 0.1
+            self.camera_dir[2] = 1
         if keys[pygame.K_DOWN]:
-            self.camera_z -= 0.1
+            self.camera_dir[2] = -1
+        if keys[pygame.K_RIGHT]:
+            self.camera_dir[0] = 1
+        if keys[pygame.K_LEFT]:
+            self.camera_dir[0] = -1
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -109,6 +115,8 @@ class Game:
 
     def update(self, dt: float) -> None:
         self.triangle_y_rot += 0.5*dt
+        self.camera_position += self.camera_dir*self.move_velocity*dt
+        self.camera_dir = np.array([0,0,0], dtype=np.float64)
 
     def draw(self) -> None:
         self.screen.fill(BG_COLOR)
@@ -126,8 +134,6 @@ class Game:
         base = np.array([250, 250, 250])
         colors = intensity[:, None] * base
         colors = colors.astype(np.uint8)
-
-
 
         # N X 3 X 3
         triangles = view_tris[self.triangle_indices]

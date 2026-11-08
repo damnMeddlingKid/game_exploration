@@ -44,14 +44,14 @@ class Game:
         self.font = pygame.font.Font(None, 24)
         self.running = True
 
-        vertices, normals, indices = load_obj("suzanneb.obj")
+        vertices, normals, indices = load_obj("suzanneg.obj")
         self.triangle_vertices = vertices
         self.triangle_normals = normals
         self.triangle_indices = indices
         self.light_direction = np.array([1,-1,0])
         self.light_direction = self.light_direction / np.linalg.norm(self.light_direction)
 
-        self.triangle_position = np.array([0,0,5])
+        self.triangle_position = np.array([0,0,3])
         self.triangle_y_rot = 0
         
         fov = np.deg2rad(60)
@@ -127,8 +127,7 @@ class Game:
         colors = intensity[:, None] * base
         colors = colors.astype(np.uint8)
 
-#         for vert in screen_vertices:
-#             pygame.draw.circle(self.screen, color="white", center=vert, radius=5)
+
 
         # N X 3 X 3
         triangles = view_tris[self.triangle_indices]
@@ -139,6 +138,10 @@ class Game:
             tri_idx = self.triangle_indices[idx]
             vertices = screen_vertices[tri_idx]
             pygame.draw.polygon(self.screen, colors[idx], vertices)
+            # pygame.draw.circle(self.screen, color="black", center=vertices[0], radius=1)
+            # pygame.draw.circle(self.screen, color="black", center=vertices[1], radius=1)
+            # pygame.draw.circle(self.screen, color="black", center=vertices[2], radius=1)
+            
 
         fps_text = self.font.render(f"FPS: {self.clock.get_fps():.0f}", True, (200, 200, 200))
         self.screen.blit(fps_text, (10, 10))

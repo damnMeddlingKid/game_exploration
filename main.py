@@ -6,6 +6,34 @@ FPS = 60
 TITLE = "Game Exploration"
 BG_COLOR = (20, 24, 32)
 
+def load_obj(file_name):
+    vertices = []
+    indices = []
+    with open(file_name, 'r') as f:
+        for line in f:
+            parts = line.split(' ')
+            if parts[0] == 'v':
+                vertices.append((float(parts[1]), float(parts[2]), -float(parts[3])))
+            elif parts[0] == 'f':
+                temp = []
+                for index in parts[1:]:
+                    index_parts = index.split('/')
+                    temp.append(int(index_parts[0]) - 1)
+                # swap two indices to correct winding order
+                temptemp = temp[0]
+                temp[0] = temp[1]
+                temp[1] = temptemp
+                indices.append(temp)
+
+    vertices = np.array(vertices, dtype=np.float64)
+    tris = vertices[indices]
+    point1, point2, point3 = tris[:, 0], tris[:, 1], tris[:, 2]
+    e1 = point2 - point1
+    e2 = point3 - point1
+    normals = np.cross(e1, e2)
+    lengths = np.linalg.norm(normals, axis=1, keepdims=True)
+    normals = normals/lengths
+    return vertices, normals, indices
 
 class Game:
     def __init__(self):
@@ -13,37 +41,15 @@ class Game:
         pygame.display.set_caption(TITLE)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
+        self.font = pygame.font.Font(None, 24)
         self.running = True
-        
-        self.triangles = np.array([
-            (-1,-1,-1), 
-            (1,-1,-1), 
-            (0,1,-1),
-            (-1,-1,1), 
-            (1,-1,1), 
-            (0,1,1)
-        ], dtype=np.float32)
 
-        self.triangles = np.array([
-        # front (z = -1)
-        (-1,-1,-1), ( 1,-1,-1), ( 1, 1,-1),
-        (-1,-1,-1), ( 1, 1,-1), (-1, 1,-1),
-        # back (z = +1)
-        ( 1,-1, 1), (-1,-1, 1), (-1, 1, 1),
-        ( 1,-1, 1), (-1, 1, 1), ( 1, 1, 1),
-        # left (x = -1)
-        (-1,-1, 1), (-1,-1,-1), (-1, 1,-1),
-        (-1,-1, 1), (-1, 1,-1), (-1, 1, 1),
-        # right (x = +1)
-        ( 1,-1,-1), ( 1,-1, 1), ( 1, 1, 1),
-        ( 1,-1,-1), ( 1, 1, 1), ( 1, 1,-1),
-        # top (y = +1)
-        (-1, 1,-1), ( 1, 1,-1), ( 1, 1, 1),
-        (-1, 1,-1), ( 1, 1, 1), (-1, 1, 1),
-        # bottom (y = -1)
-        (-1,-1, 1), ( 1,-1, 1), ( 1,-1,-1),
-        (-1,-1, 1), ( 1,-1,-1), (-1,-1,-1),
-        ], dtype=np.float32)
+        vertices, normals, indices = load_obj("suzanneb.obj")
+        self.triangle_vertices = vertices
+        self.triangle_normals = normals
+        self.triangle_indices = indices
+        self.light_direction = np.array([1,-1,0])
+        self.light_direction = self.light_direction / np.linalg.norm(self.light_direction)
 
         self.triangle_position = np.array([0,0,5])
         self.triangle_y_rot = 0
@@ -101,35 +107,42 @@ class Game:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.running = False
 
-
     def update(self, dt: float) -> None:
         self.triangle_y_rot += 0.5*dt
 
     def draw(self) -> None:
         self.screen.fill(BG_COLOR)
-        rotated_tris = self.rotate(self.triangles, self.triangle_y_rot)
+        rotated_tris = self.rotate(self.triangle_vertices, self.triangle_y_rot)
+        rotated_normals = self.rotate(self.triangle_normals, self.triangle_y_rot)
         translated_tris = rotated_tris + self.triangle_position
         view_tris = self.world_to_view(translated_tris)
         projected_tris = self.project(view_tris)
-        screen_tris = self.view_to_screen(projected_tris)
-        start_tri = None
-        
-        for (idx, tri) in enumerate(screen_tris):
-            pygame.draw.circle(self.screen, color="white", center=pygame.Vector2(tri[0], tri[1]), radius=5)
-            if idx % 3 == 0:
-                close_tri = screen_tris[idx-3]
-                last_tri = screen_tris[idx-1]
-                pygame.draw.line(self.screen, "white",pygame.Vector2(last_tri[0], last_tri[1]), pygame.Vector2(close_tri[0], close_tri[1]))
-            else:
-                pygame.draw.line(self.screen, "white",pygame.Vector2(start_tri[0], start_tri[1]), pygame.Vector2(tri[0], tri[1]))
-            start_tri = tri
+        screen_vertices = self.view_to_screen(projected_tris)
 
-        close_tri = screen_tris[-3]
-        last_tri = screen_tris[-1]
+        face_brightness = np.clip(np.dot(rotated_normals, self.light_direction), a_min=0.0, a_max=None)
+        ambient = 0.2
+        intensity = ambient + (1 - ambient) * face_brightness
+        #base = np.array([90, 200, 250])
+        base = np.array([250, 250, 250])
+        colors = intensity[:, None] * base
+        colors = colors.astype(np.uint8)
 
-        pygame.draw.line(self.screen, "white",pygame.Vector2(last_tri[0], last_tri[1]), pygame.Vector2(close_tri[0], close_tri[1]))
-        
-        
+#         for vert in screen_vertices:
+#             pygame.draw.circle(self.screen, color="white", center=vert, radius=5)
+
+        # N X 3 X 3
+        triangles = view_tris[self.triangle_indices]
+        face_depth = np.average(triangles[:, :, 2], axis=1)
+        tri_indices = np.argsort(-face_depth)
+
+        for idx in tri_indices:
+            tri_idx = self.triangle_indices[idx]
+            vertices = screen_vertices[tri_idx]
+            pygame.draw.polygon(self.screen, colors[idx], vertices)
+
+        fps_text = self.font.render(f"FPS: {self.clock.get_fps():.0f}", True, (200, 200, 200))
+        self.screen.blit(fps_text, (10, 10))
+
         pygame.display.flip()
 
     def run(self) -> None:

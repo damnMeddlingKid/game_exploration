@@ -51,7 +51,7 @@ class Game:
         self.light_direction = np.array([1,-1,0])
         self.light_direction = self.light_direction / np.linalg.norm(self.light_direction)
 
-        self.triangle_position = np.array([0,0,3])
+        self.triangle_position = np.array([0,0,3], dtype=np.float64)
         self.triangle_y_rot = 0
         
         fov = np.deg2rad(60)
@@ -62,10 +62,15 @@ class Game:
         self.focal_z = (HEIGHT/2)/np.tan(fov/2)
         self.camera_position = np.array([0,0,0], dtype=np.float64)
         self.camera_dir = np.array([0,0,0], dtype=np.float64)
+        self.camera_rot = np.array([0,0,0], dtype=np.float64)
+        self.camera_rotv = np.array([0,0,0], dtype=np.float64)
         self.move_velocity = 4.0
 
     def world_to_view(self, points):
-        return points - self.camera_position
+        world_points = points - self.camera_position
+        world_points = self.rotatey(world_points, -self.camera_rot[1])
+        world_points = self.rotatey(world_points, -self.camera_rot[0])
+        return world_points
 
     def project(self, view_points):
         normalized_points = view_points / view_points[:, [-1]]
@@ -75,37 +80,59 @@ class Game:
         screen_points = np.multiply(np.array([1, -1, 0]), projected_points)
         return screen_points[:,:2] + np.array([WIDTH/2, HEIGHT/2])
 
-    def rotate(self, points, rad):
+    def rotatey(self, points, rad):
         """
         rotate in y axis
         a' = a cos θ − b sin θ
         b' = a sin θ + b cos θ
-        NX3 3x3
-        [a,b,c][
-            [cos(θ) ,0,sin θ],
-            [0      ,1,0    ],
-            [-sin(θ),0,cos θ],
-        ]
         """
         rot_matrix = np.array([
-            [np.cos(rad),0,np.sin(rad)],
+            [np.cos(rad),0,-np.sin(rad)],
             [0,1,0],
-            [-np.sin(rad),0,np.cos(rad)],
+            [np.sin(rad),0,np.cos(rad)],
         ])
         # TODO fix the matrix instead of the transpose.
-        return points @ rot_matrix.T
+        return points @ rot_matrix
+
+    def rotatex(self, points, rad):
+        """
+        rotate in y axis
+        a' = a cos θ − b sin θ
+        b' = a sin θ + b cos θ
+        """
+        rot_matrix = np.array([
+            [1,0,0],
+            [0,np.cos(rad),np.sin(rad)],
+            [0,-np.sin(rad),np.cos(rad)],
+        ])
+        return points @ rot_matrix
         
     def handle_events(self) -> None:
         keys = pygame.key.get_pressed()
+        
+        self.camera_dir = np.array([0,0,0], dtype=np.float64)
+        self.camera_rotv = np.array([0,0,0], dtype=np.float64)
 
-        if keys[pygame.K_UP]:
-            self.camera_dir[2] = 1
-        if keys[pygame.K_DOWN]:
-            self.camera_dir[2] = -1
+        if keys[pygame.K_d]:
+            self.camera_dir[0] += 1
+        if keys[pygame.K_a]:
+            self.camera_dir[0] += -1
         if keys[pygame.K_RIGHT]:
-            self.camera_dir[0] = 1
+            self.camera_rotv[1] += 0.5
         if keys[pygame.K_LEFT]:
-            self.camera_dir[0] = -1
+            self.camera_rotv[1] += -0.5
+        if keys[pygame.K_w]:
+            self.camera_dir[1] += 1
+        if keys[pygame.K_s]:
+            self.camera_dir[1] += -1
+        if keys[pygame.K_UP]:
+            self.camera_dir[2] += 1
+        if keys[pygame.K_DOWN]:
+            self.camera_dir[2] += -1
+
+        camera_dir_norm = np.linalg.norm(self.camera_dir)
+        if camera_dir_norm > 0:
+            self.camera_dir = self.camera_dir / camera_dir_norm
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -116,12 +143,12 @@ class Game:
     def update(self, dt: float) -> None:
         self.triangle_y_rot += 0.5*dt
         self.camera_position += self.camera_dir*self.move_velocity*dt
-        self.camera_dir = np.array([0,0,0], dtype=np.float64)
+        self.camera_rot += self.camera_rotv*dt
 
     def draw(self) -> None:
         self.screen.fill(BG_COLOR)
-        rotated_tris = self.rotate(self.triangle_vertices, self.triangle_y_rot)
-        rotated_normals = self.rotate(self.triangle_normals, self.triangle_y_rot)
+        rotated_tris = self.rotatey(self.triangle_vertices, self.triangle_y_rot)
+        rotated_normals = self.rotatey(self.triangle_normals, self.triangle_y_rot)
         translated_tris = rotated_tris + self.triangle_position
         view_tris = self.world_to_view(translated_tris)
         projected_tris = self.project(view_tris)

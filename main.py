@@ -64,13 +64,14 @@ class Game:
         self.camera_dir = np.array([0,0,0], dtype=np.float64)
         self.camera_rot = np.array([0,0,0], dtype=np.float64)
         self.camera_rotv = np.array([0,0,0], dtype=np.float64)
+        self.look_dir = np.array([0, 0, 1], dtype=np.float64)
         self.move_velocity = 4.0
 
     def world_to_view(self, points):
-        world_points = points - self.camera_position
-        world_points = self.rotatey(world_points, -self.camera_rot[1])
-        world_points = self.rotatey(world_points, -self.camera_rot[0])
-        return world_points
+        view_points = points - self.camera_position
+        view_points = self.rotatey(view_points, -self.camera_rot[0])
+        view_points = self.rotatex(view_points, -self.camera_rot[1])
+        return view_points
 
     def project(self, view_points):
         normalized_points = view_points / view_points[:, [-1]]
@@ -110,25 +111,23 @@ class Game:
     def handle_events(self) -> None:
         keys = pygame.key.get_pressed()
         
-        self.camera_dir = np.array([0,0,0], dtype=np.float64)
-        self.camera_rotv = np.array([0,0,0], dtype=np.float64)
+        self.look_dir = np.array([0, 0, 1], dtype=np.float64)
+        self.camera_dir = np.array([0, 0, 0], dtype=np.float64)
+        mouse_pos = np.array(pygame.mouse.get_pos()) - np.array((WIDTH/2, HEIGHT/2))
+        normalized_pos = mouse_pos / np.array((WIDTH/2, HEIGHT/2))
+        angle_max =  np.pi/2
+        look_angle = normalized_pos * angle_max
 
-        if keys[pygame.K_d]:
-            self.camera_dir[0] += 1
-        if keys[pygame.K_a]:
-            self.camera_dir[0] += -1
-        if keys[pygame.K_RIGHT]:
-            self.camera_rotv[1] += 0.5
-        if keys[pygame.K_LEFT]:
-            self.camera_rotv[1] += -0.5
+        self.look_dir = self.rotatex(self.look_dir, look_angle[1])
+        self.look_dir = self.rotatey(self.look_dir, look_angle[0])
+
+        self.camera_rot = look_angle
+        
+
         if keys[pygame.K_w]:
-            self.camera_dir[1] += 1
+            self.camera_dir += self.look_dir
         if keys[pygame.K_s]:
-            self.camera_dir[1] += -1
-        if keys[pygame.K_UP]:
-            self.camera_dir[2] += 1
-        if keys[pygame.K_DOWN]:
-            self.camera_dir[2] += -1
+            self.camera_dir += -self.look_dir
 
         camera_dir_norm = np.linalg.norm(self.camera_dir)
         if camera_dir_norm > 0:
@@ -143,7 +142,6 @@ class Game:
     def update(self, dt: float) -> None:
         self.triangle_y_rot += 0.5*dt
         self.camera_position += self.camera_dir*self.move_velocity*dt
-        self.camera_rot += self.camera_rotv*dt
 
     def draw(self) -> None:
         self.screen.fill(BG_COLOR)

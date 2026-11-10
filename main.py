@@ -1,5 +1,6 @@
 import numpy as np
 import pygame
+from numba import jit
 
 WIDTH, HEIGHT = 960, 540
 FPS = 60
@@ -44,7 +45,7 @@ class Game:
         self.font = pygame.font.Font(None, 24)
         self.running = True
 
-        vertices, normals, indices = load_obj("suzanneg.obj")
+        vertices, normals, indices = load_obj("suzannehires.obj")
         self.triangle_vertices = vertices
         self.triangle_normals = normals
         self.triangle_indices = indices
@@ -60,7 +61,7 @@ class Game:
         # viewx/f = x/z, # viewy/f = y/z
         # viewx = f*(x/z), viewy = f*(y/z)
         self.focal_z = (HEIGHT/2)/np.tan(fov/2)
-        self.camera_position = np.array([0,0,0], dtype=np.float64)
+        self.camera_position = np.array([0,0,-1], dtype=np.float64)
         self.camera_dir = np.array([0,0,0], dtype=np.float64)
         self.camera_rot = np.array([0,0,0], dtype=np.float64)
         self.camera_rotv = np.array([0,0,0], dtype=np.float64)
@@ -121,9 +122,8 @@ class Game:
         self.look_dir = self.rotatex(self.look_dir, look_angle[1])
         self.look_dir = self.rotatey(self.look_dir, look_angle[0])
 
-        self.camera_rot = look_angle
+        #self.camera_rot = look_angle
         
-
         if keys[pygame.K_w]:
             self.camera_dir += self.look_dir
         if keys[pygame.K_s]:
@@ -163,21 +163,58 @@ class Game:
         # N X 3 X 3
         triangles = view_tris[self.triangle_indices]
         face_depth = np.average(triangles[:, :, 2], axis=1)
-        tri_indices = np.argsort(-face_depth)
+        draw_index = np.argsort(-face_depth)
 
-        for idx in tri_indices:
-            tri_idx = self.triangle_indices[idx]
-            vertices = screen_vertices[tri_idx]
-            pygame.draw.polygon(self.screen, colors[idx], vertices)
-            # pygame.draw.circle(self.screen, color="black", center=vertices[0], radius=1)
-            # pygame.draw.circle(self.screen, color="black", center=vertices[1], radius=1)
-            # pygame.draw.circle(self.screen, color="black", center=vertices[2], radius=1)
-            
+        # for idx in tri_indices:
+        #     tri_idx = self.triangle_indices[idx]
+        #     vertices = screen_vertices[tri_idx]
+        #     pygame.draw.polygon(self.screen, colors[idx], vertices)
+        #     # pygame.draw.circle(self.screen, color="black", center=vertices[0], radius=1)
+        #     # pygame.draw.circle(self.screen, color="black", center=vertices[1], radius=1)
+        #     # pygame.draw.circle(self.screen, color="black", center=vertices[2], radius=1)
+        with pygame.PixelArray(self.screen) as px_array:
+            self.render_triangles(px_array, draw_index, screen_vertices, colors)
 
         fps_text = self.font.render(f"FPS: {self.clock.get_fps():.0f}", True, (200, 200, 200))
         self.screen.blit(fps_text, (10, 10))
 
         pygame.display.flip()
+
+    @jit
+    def render_triangles(self, px_array, draw_index, screen_vertices, colors):        
+        for idx in draw_index:
+            tri_idx = self.triangle_indices[idx]
+            vertices = screen_vertices[tri_idx]
+            
+            v1 = vertices[1] - vertices[0]
+            v2 = vertices[2] - vertices[1]
+            v3 = vertices[0] - vertices[2]
+            
+            vectors = np.array([v1,v2,v3])
+            normals = vectors[:, [1,0]]
+            normals[:,1] = -normals[:,1]
+            normals = -normals
+            min_x_px = int(np.min(vertices[:,0]))
+            max_x_px = int(np.max(vertices[:,0]))
+            min_y_px = int(np.min(vertices[:,1]))
+            max_y_px = int(np.max(vertices[:,1]))
+
+            
+            for x in range(min_x_px, max_x_px+1):
+                for y in range(min_y_px, max_y_px+1):
+                    if x <0 or y <0 or x > WIDTH-1 or y > HEIGHT-1:
+                        continue
+                    # if x == 364 and y == 157:
+                    #     import ipdb;ipdb.set_trace()
+                    
+                    n1 = np.dot(normals[0], (x,y)-vertices[0])
+                    n2 = np.dot(normals[1], (x,y)-vertices[1])
+                    n3 = np.dot(normals[2], (x,y)-vertices[2])
+                    if n1 > 0 and n2 > 0 and n3 > 0:
+                    #products = np.sum(normals * ((x,y)-vertices), axis=1)
+                    #if np.all(products > 0):
+                        #print(f"{x},{y}")
+                        px_array[x, y] = tuple(colors[idx])
 
     def run(self) -> None:
         while self.running:

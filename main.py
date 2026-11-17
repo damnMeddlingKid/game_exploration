@@ -76,7 +76,7 @@ class Game:
         self.light_direction = np.array([1,-1,0])
         self.light_direction = self.light_direction / np.linalg.norm(self.light_direction)
 
-        self.triangle_position = np.array([0,-0.5,3], dtype=np.float64)
+        self.triangle_position = np.array([0,-0.1,2], dtype=np.float64)
         self.triangle_y_rot = 0
         
         fov = np.deg2rad(60)
@@ -95,8 +95,8 @@ class Game:
 
     def world_to_view(self, points):
         view_points = points - self.camera_position
-        view_points = self.rotatey(view_points, -self.camera_rot[0])
-        view_points = self.rotatex(view_points, -self.camera_rot[1])
+        #view_points = self.rotatey(view_points, -self.camera_rot[0])
+        #view_points = self.rotatex(view_points, -self.camera_rot[1])
         return view_points
 
     def project(self, view_points):
@@ -150,8 +150,8 @@ class Game:
         self.camera_rot[1]=np.clip(self.camera_rot[1], a_min=-angle_max, a_max=angle_max)
         self.camera_rot[0]=np.clip(self.camera_rot[0], a_min=-angle_max, a_max=angle_max)
 
-        self.look_dir = self.rotatex(self.look_dir, self.camera_rot[1])
-        self.look_dir = self.rotatey(self.look_dir, self.camera_rot[0])
+        #self.look_dir = self.rotatex(self.look_dir, self.camera_rot[1])
+        #self.look_dir = self.rotatey(self.look_dir, self.camera_rot[0])
 
         if keys[pygame.K_w]:
             self.camera_dir += self.look_dir

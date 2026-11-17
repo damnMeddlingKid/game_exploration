@@ -127,10 +127,11 @@ The wireframe camera is the core of the course. Part 2 fills triangles yourself,
 
 ## Stage 11: Depth buffer (deferred)
 **Goal:** correct overlap for every pixel, without sorting.
-- Keep a `(W, H)` float array, set to infinity at the start of each frame.
+- Keep a `(W, H)` float array of **1/z** values, set to **0** at the start of each frame (1/z = 0 means infinitely far away).
 - Per pixel, blend **1/z** with the barycentric weights. You already do this in Stage 10d.
   - Larger 1/z means **closer**.
-  - Only write the pixel if it's closer than the value already stored, then store the new value.
+  - Only write the pixel if its 1/z is larger than the value already stored, then store the new value.
+  - Storing z instead also works: invert per pixel, start the buffer at infinity, and keep the smaller value. It costs one division per pixel.
 - Painter's sorting is no longer needed, and back-face culling becomes just a speed-up.
 - **Check:** Suzanne's ears and nose overlap correctly from every angle.
 

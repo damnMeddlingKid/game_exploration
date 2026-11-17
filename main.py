@@ -182,7 +182,7 @@ class Game:
         screen_vertices = self.view_to_screen(projected_tris)
 
         face_brightness = np.clip(np.dot(rotated_normals, self.light_direction), a_min=0.0, a_max=None)
-        ambient = 0.5
+        ambient = 0.6
         intensity = ambient + (1 - ambient) * face_brightness
         #base = np.array([90, 200, 250])
         base = np.array([250, 250, 250])
@@ -282,6 +282,9 @@ class Game:
                         
                         i_uv_u = ((n1*uv1_u*inv_z1 + n2*uv0_u*inv_z0 + n3*uv2_u*inv_z2)/tri_area)/inv_z
                         i_uv_v = ((n1*uv1_v*inv_z1 + n2*uv0_v*inv_z0+ n3*uv2_v*inv_z2)/tri_area)/inv_z
+
+                        #i_uv_u = ((n1*uv1_u + n2*uv0_u + n3*uv2_u)/tri_area)
+                        #i_uv_v = ((n1*uv1_v + n2*uv0_v+ n3*uv2_v)/tri_area)
 
                         tex_cord_row = int((texture.shape[0]-1) - i_uv_v*(texture.shape[0]-1))
                         tex_cord_col = int(i_uv_u*(texture.shape[1]-1))

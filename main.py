@@ -66,12 +66,12 @@ class Game:
         self.frame_start = time.perf_counter()
         self.work_ms = 0.0
 
-        vertices, normals, indices, uv = load_obj("garen/source/garentri.obj")
+        vertices, normals, indices, uv = load_obj("models/garen/source/garentri.obj")
         self.triangle_vertices = vertices
         self.triangle_normals = normals
         self.triangle_indices = np.array(indices)
         self.triangle_uv = uv
-        img = Image.open("garen/textures/garen_tex.jpg")
+        img = Image.open("models/garen/textures/garen_tex.jpg")
         self.triangle_texture = np.array(img)
         self.light_direction = np.array([1,-1,0])
         self.light_direction = self.light_direction / np.linalg.norm(self.light_direction)

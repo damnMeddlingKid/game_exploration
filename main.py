@@ -182,7 +182,7 @@ class Game:
         screen_vertices = self.view_to_screen(projected_tris)
 
         face_brightness = np.clip(np.dot(rotated_normals, self.light_direction), a_min=0.0, a_max=None)
-        ambient = 0.6
+        ambient = 0.9
         intensity = ambient + (1 - ambient) * face_brightness
         #base = np.array([90, 200, 250])
         base = np.array([250, 250, 250])
